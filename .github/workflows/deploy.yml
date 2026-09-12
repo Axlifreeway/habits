@@ -1,0 +1,51 @@
+name: Собрать и опубликовать
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'entries/**'
+      - 'scripts/**'
+      - 'site/**'
+      - 'config.json'
+      - '.github/workflows/deploy.yml'
+  # Раз в сутки, через пять минут после конца «дня» челленджа (02:00 UTC+5),
+  # чтобы вчерашние пропуски проявились в календаре сами.
+  schedule:
+    - cron: '5 21 * * *'
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Собрать сайт
+        run: node scripts/build.mjs
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

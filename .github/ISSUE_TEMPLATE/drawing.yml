@@ -1,0 +1,41 @@
+name: Рисунок за день
+description: То, что нарисовал сегодня
+title: "Рисунок: "
+labels: ["drawing"]
+body:
+  - type: textarea
+    id: image
+    attributes:
+      label: Рисунок
+      description: Перетащи файл сюда прямо из проводника. Ужимать не надо — полный размер сохранится.
+      placeholder: "перетащи картинку в это поле"
+    validations:
+      required: true
+  - type: input
+    id: title
+    attributes:
+      label: Что это
+      placeholder: Сфера и тень
+  - type: input
+    id: tool
+    attributes:
+      label: Чем рисовал
+      placeholder: Krita, карандаш 2B
+  - type: input
+    id: minutes
+    attributes:
+      label: Сколько времени рисовал
+      placeholder: "40"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Комментарий — что пробовал, что получилось, что нет
+      placeholder: |
+        Что именно отрабатывал, что не вышло и почему.
+        Если это просто каракули после работы — так и напиши.
+  - type: input
+    id: date
+    attributes:
+      label: Дата (если задним числом)
+      description: ГГГГ-ММ-ДД. Пусто — значит сегодня.
+      placeholder: 2026-09-13

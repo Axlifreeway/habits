@@ -1,0 +1,74 @@
+name: Запись из issue
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: entry-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    # Только владелец репозитория может писать в дневник.
+    # Чужие issue остаются просто комментариями и ничего не меняют.
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      (contains(github.event.issue.labels.*.name, 'reading') ||
+       contains(github.event.issue.labels.*.name, 'drawing'))
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.ingest.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Разобрать issue в запись
+        id: ingest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ingest.mjs
+
+      - name: Закоммитить
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add entries
+          if git diff --cached --quiet; then
+            echo "Нечего коммитить."
+            exit 0
+          fi
+          git commit -m "${{ steps.ingest.outputs.summary }} (#${{ github.event.issue.number }})"
+          git push
+
+      - name: Отчитаться в issue и закрыть
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "${{ steps.ingest.outputs.summary }}. Появится на сайте через минуту."
+          gh issue close ${{ github.event.issue.number }}
+
+      - name: Сообщить об ошибке
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --body "Не получилось записать. Подробности в логе: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Поправь issue — я попробую снова."
+
+  deploy:
+    needs: ingest
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

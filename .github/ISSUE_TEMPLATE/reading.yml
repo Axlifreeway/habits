@@ -1,0 +1,53 @@
+name: Статья за день
+description: Конспект прочитанной статьи
+title: "Статья: "
+labels: ["reading"]
+body:
+  - type: input
+    id: url
+    attributes:
+      label: Ссылка на статью
+      placeholder: https://
+    validations:
+      required: true
+  - type: input
+    id: title
+    attributes:
+      label: Название статьи
+    validations:
+      required: true
+  - type: input
+    id: author
+    attributes:
+      label: Автор
+  - type: input
+    id: source
+    attributes:
+      label: Где опубликовано
+      description: Издание, блог, сайт — что уместно.
+  - type: input
+    id: minutes
+    attributes:
+      label: Сколько времени заняло чтение
+      placeholder: "15"
+  - type: textarea
+    id: notes
+    attributes:
+      label: "Конспект: что я понял и что забрал себе"
+      description: Markdown работает. Своими словами — пересказ чужого текста тут не нужен.
+      placeholder: |
+        Одним абзацем: о чём статья.
+
+        ## Что зацепило
+        - ...
+
+        ## Что я забираю себе
+        ...
+    validations:
+      required: true
+  - type: input
+    id: date
+    attributes:
+      label: Дата (если задним числом)
+      description: ГГГГ-ММ-ДД. Пусто — значит сегодня.
+      placeholder: 2026-09-13
