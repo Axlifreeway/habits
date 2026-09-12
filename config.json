@@ -6,8 +6,8 @@
   "days": 30,
   "tzOffsetHours": 5,
   "dayCutoffHour": 2,
-  "owner": "",
-  "repo": "",
+  "owner": "Axlifreeway",
+  "repo": "habits",
   "habits": [
     {
       "id": "reading",
