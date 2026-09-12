@@ -101,7 +101,8 @@ function renderSummary() {
   const stats = [];
 
   if (daysBetween(today, cfg.start) > 0) {
-    stats.push({ b: daysBetween(today, cfg.start), s: 'дней до старта' });
+    const left = daysBetween(today, cfg.start);
+    stats.push({ b: left, s: plural(left, 'день до старта', 'дня до старта', 'дней до старта') });
   } else if (daysBetween(lastDay, today) > 0) {
     stats.push({ b: `${cfg.days}/${cfg.days}`, s: 'челлендж окончен' });
   } else {
