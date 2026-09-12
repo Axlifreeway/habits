@@ -78,6 +78,7 @@ scripts/build.mjs        сборка статики в dist/
 scripts/ingest.mjs       issue → запись (запускается из Actions)
 scripts/new.mjs          заготовка записи с компьютера
 scripts/demo.mjs         демо-наполнение для превью
+scripts/check-forms.mjs  проверка форм issue перед сборкой
 scripts/lib/             разбор markdown и работа с датами
 ```
 

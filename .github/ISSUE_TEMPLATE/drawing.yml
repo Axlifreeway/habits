@@ -38,4 +38,4 @@ body:
     attributes:
       label: Дата (если задним числом)
       description: ГГГГ-ММ-ДД. Пусто — значит сегодня.
-      placeholder: 2026-09-13
+      placeholder: "2026-09-13"

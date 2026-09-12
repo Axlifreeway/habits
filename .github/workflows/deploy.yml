@@ -42,6 +42,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Проверить формы issue
+        run: node scripts/check-forms.mjs
+
       - name: Собрать сайт
         run: node scripts/build.mjs
 
