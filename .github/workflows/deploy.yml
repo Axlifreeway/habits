@@ -32,7 +32,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # Именно ветку, а не github.sha: когда сюда приходят из entry.yml, бот уже
+      # успел закоммитить запись, а github.sha указывает на состояние до неё.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
