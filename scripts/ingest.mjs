@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   loadConfig, challengeDate, isValidDate, serializeEntry, entriesDir, formatDate,
+  parseEntry, entryBase, ENTRY_FILE,
 } from './lib/data.mjs';
 
 const cfg = loadConfig();
@@ -146,10 +147,37 @@ async function downloadImage(url, destDir, baseName) {
   return { name, bytes: buf.length };
 }
 
+// --- какое место в дне занимает запись ---
+//
+// За день можно прочитать две статьи и выложить три рисунка. Первая запись
+// живёт в reading.md, следующие — в reading-2.md и дальше. Номер issue пишем
+// в запись: если тот же issue отредактировали, правим его запись, а не плодим новые.
+
+function pickSlot(dir, habitId, issueNumber) {
+  const used = new Set();
+  let mine = null;
+  if (fs.existsSync(dir)) {
+    for (const f of fs.readdirSync(dir)) {
+      const m = f.match(ENTRY_FILE);
+      if (!m || m[1] !== habitId) continue;
+      const n = m[2] ? Number(m[2]) : 1;
+      used.add(n);
+      const { meta } = parseEntry(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (issueNumber && String(meta.issue) === String(issueNumber)) mine = n;
+    }
+  }
+  if (mine !== null) return { slot: mine, existed: true };
+  let n = 1;
+  while (used.has(n)) n++;
+  return { slot: n, existed: false };
+}
+
 // --- сборка записи ---
 
 const dir = path.join(entriesDir(), date);
-const meta = { habit: habit.id, date };
+const { slot, existed } = pickSlot(dir, habit.id, issue.number);
+const base = entryBase(habit.id, slot);
+const meta = { habit: habit.id, date, issue: issue.number };
 let body = '';
 let note = '';
 
@@ -171,20 +199,20 @@ if (habit.id === 'reading') {
   const raw = field('рисунок', 'картинк', 'изображение') || issue.body;
   const url = findImageUrl(raw);
   if (!url) fail('В issue нет картинки. Перетащи файл в поле «Рисунок».');
-  const img = await downloadImage(url, dir, 'drawing');
+  const img = await downloadImage(url, dir, base);
   meta.image = img.name;
   note = `${img.name}, ${(img.bytes / 1048576).toFixed(1)} МБ`;
   if (!body) body = '';
 }
 
 fs.mkdirSync(dir, { recursive: true });
-const file = path.join(dir, `${habit.id}.md`);
-const existed = fs.existsSync(file);
+const file = path.join(dir, `${base}.md`);
 fs.writeFileSync(file, serializeEntry(meta, body));
 
 const rel = path.relative(process.cwd(), file).split(path.sep).join('/');
 const verb = existed ? 'Обновлено' : 'Записано';
-const summary = `${verb}: ${habit.name.toLowerCase()} за ${formatDate(date)}${note ? ' (' + note + ')' : ''}`;
+const which = slot > 1 ? `, ${slot}-я за день` : '';
+const summary = `${verb}: ${habit.name.toLowerCase()} за ${formatDate(date)}${which}${note ? ' (' + note + ')' : ''}`;
 
 console.log(summary);
 console.log('Файл: ' + rel);

@@ -93,7 +93,14 @@ export function entriesDir() {
     : path.join(ROOT, 'entries');
 }
 
-// { '2026-09-13': { reading: {meta, body, files}, drawing: {...} } }
+// Имя файла записи: reading.md — первая за день, reading-2.md — вторая, и так далее.
+export const ENTRY_FILE = /^([a-z0-9]+(?:-[a-z0-9]+)*?)(?:-([0-9]+))?\.md$/i;
+
+export function entryBase(habitId, slot) {
+  return slot > 1 ? `${habitId}-${slot}` : habitId;
+}
+
+// { '2026-09-13': { reading: [запись, запись], drawing: [запись] } }
 export function loadEntries(cfg) {
   const dir = entriesDir();
   const byDate = {};
@@ -104,17 +111,32 @@ export function loadEntries(cfg) {
     const dayPath = path.join(dir, dayName);
     if (!isValidDate(dayName) || !fs.statSync(dayPath).isDirectory()) continue;
     const files = fs.readdirSync(dayPath);
+    const slots = {};
+
     for (const f of files) {
-      const id = f.replace(/\.md$/, '');
-      if (!f.endsWith('.md') || !habitIds.has(id)) continue;
+      const m = f.match(ENTRY_FILE);
+      if (!m || !habitIds.has(m[1])) continue;
+      const base = f.slice(0, -3);
       const parsed = parseEntry(fs.readFileSync(path.join(dayPath, f), 'utf8'));
-      parsed.habit = id;
+      parsed.habit = m[1];
       parsed.date = dayName;
-      parsed.assets = files.filter((x) => !x.endsWith('.md') && x.startsWith(id));
-      (byDate[dayName] ||= {})[id] = parsed;
+      parsed.slot = m[2] ? Number(m[2]) : 1;
+      // Вложения записи — файлы с тем же именем: drawing-2.png рядом с drawing-2.md
+      parsed.assets = files.filter(
+        (x) => !x.endsWith('.md') && x.slice(0, x.lastIndexOf('.')) === base
+      );
+      (slots[m[1]] ||= []).push(parsed);
     }
+
+    for (const id of Object.keys(slots)) slots[id].sort((a, b) => a.slot - b.slot);
+    if (Object.keys(slots).length) byDate[dayName] = slots;
   }
   return byDate;
+}
+
+// Все записи по привычке за день. Всегда массив, пусть и пустой.
+export function entriesFor(entries, date, habitId) {
+  return (entries[date] && entries[date][habitId]) || [];
 }
 
 export function challengeDays(cfg) {
@@ -127,7 +149,7 @@ export function challengeDays(cfg) {
 export function dayStatus(date, cfg, entries, today) {
   const inRange = daysBetween(cfg.start, date) >= 0 && daysBetween(date, addDays(cfg.start, cfg.days - 1)) >= 0;
   if (!inRange) return 'outside';
-  const done = cfg.habits.filter((h) => entries[date] && entries[date][h.id]).length;
+  const done = cfg.habits.filter((h) => entriesFor(entries, date, h.id).length).length;
   if (done === cfg.habits.length) return 'done';
   if (daysBetween(today, date) > 0) return 'future';
   if (done > 0) return 'partial';

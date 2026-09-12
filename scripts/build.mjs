@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { renderMarkdown, plainText, escapeHtml } from './lib/md.mjs';
 import {
-  ROOT, loadConfig, loadEntries, challengeDate, challengeDays, dayStatus,
+  ROOT, loadConfig, loadEntries, entriesFor, challengeDate, challengeDays, dayStatus,
   daysBetween, formatDate, weekdayName, weekdayIndex, monthTitle, entriesDir,
 } from './lib/data.mjs';
 
@@ -76,9 +76,13 @@ function renderCalendar() {
       const status = dayStatus(date, cfg, entries, today);
       const marks = cfg.habits.map((h) => {
         if (status === 'outside') return '';
-        const has = entries[date] && entries[date][h.id];
-        const cls = has ? 'done' : (daysBetween(today, date) > 0 ? 'future' : 'missed');
-        return `<span class="mark ${cls}" title="${escapeHtml(h.name)}"></span>`;
+        const list = entriesFor(entries, date, h.id);
+        const cls = list.length ? 'done' : (daysBetween(today, date) > 0 ? 'future' : 'missed');
+        const many = list.length > 1 ? ' many' : '';
+        const title = list.length > 1
+          ? `${h.name}: ${list.length}`
+          : h.name;
+        return `<span class="mark ${cls}${many}" title="${escapeHtml(title)}"></span>`;
       }).join('');
       const inner = `<span class="num">${d}</span><span class="marks">${marks}</span>`;
 
@@ -110,7 +114,7 @@ function renderSummary() {
   }
 
   for (const h of cfg.habits) {
-    const done = days.filter((d) => entries[d.date] && entries[d.date][h.id]).length;
+    const done = days.reduce((n, d) => n + entriesFor(entries, d.date, h.id).length, 0);
     stats.push({ b: done, s: String(h.verb || h.name).toLowerCase() });
   }
 
@@ -119,7 +123,7 @@ function renderSummary() {
   for (const d of days) {
     if (daysBetween(d.date, today) < 0) continue;
     for (const h of cfg.habits) {
-      if (!(entries[d.date] && entries[d.date][h.id])) missed++;
+      if (!entriesFor(entries, d.date, h.id).length) missed++;
     }
   }
   stats.push({ b: missed, s: plural(missed, 'пропуск', 'пропуска', 'пропусков') });
@@ -139,6 +143,7 @@ ${renderSummary()}
 ${renderCalendar()}
 <div class="legend">
 <span><i class="done"></i>сделано</span>
+<span><i class="done many"></i>больше одной</span>
 <span><i class="missed"></i>пропущено</span>
 <span><i class="future"></i>ещё впереди</span>
 </div>`;
@@ -180,31 +185,32 @@ ${figure}
 <div class="prose">${renderMarkdown(body)}</div>`;
 }
 
-function renderEntry(habit, e, date) {
-  let inner;
-  if (!e) {
-    const future = daysBetween(today, date) > 0;
-    inner = `<div class="blank${future ? ' is-future' : ''}">${escapeHtml(
-      future ? 'Этот день ещё не наступил.' : (habit.empty || 'Записи нет.'))}</div>`;
-  } else if (habit.id === 'reading') {
-    inner = renderReading(e);
-  } else {
-    inner = renderDrawing(e);
-  }
+function section(kicker, inner) {
   return `<section class="entry">
-<div class="kicker">${escapeHtml(habit.name)}</div>
+<div class="kicker">${escapeHtml(kicker)}</div>
 ${inner}
 </section>`;
 }
 
+function renderHabit(habit, list, date) {
+  if (!list.length) {
+    const future = daysBetween(today, date) > 0;
+    const text = future ? 'Этот день ещё не наступил.' : (habit.empty || 'Записи нет.');
+    return section(habit.name, `<div class="blank${future ? ' is-future' : ''}">${escapeHtml(text)}</div>`);
+  }
+  return list.map((e, i) => {
+    const kicker = list.length > 1 ? `${habit.name} ${i + 1} из ${list.length}` : habit.name;
+    return section(kicker, habit.id === 'reading' ? renderReading(e) : renderDrawing(e));
+  }).join('\n');
+}
+
 function buildDay({ date, n }) {
-  const dayEntries = entries[date] || {};
   const body = `<a class="backlink" href="../index.html">← К календарю</a>
 <header class="dayhead">
 <h1>День ${n}</h1>
 <div class="sub">${escapeHtml(formatDate(date))}, ${escapeHtml(weekdayName(date))}</div>
 </header>
-${cfg.habits.map((h) => renderEntry(h, dayEntries[h.id], date)).join('\n')}`;
+${cfg.habits.map((h) => renderHabit(h, entriesFor(entries, date, h.id), date)).join('\n')}`;
   return page({ title: `День ${n} — ${cfg.title}`, body, depth: 1 });
 }
 
@@ -222,9 +228,9 @@ function buildFeed() {
   const items = [];
   for (const { date, n } of days) {
     for (const h of cfg.habits) {
-      const e = entries[date] && entries[date][h.id];
-      if (!e) continue;
-      items.push({ date, n, habit: h, entry: e, img: h.id === 'drawing' ? imageOf(e) : null });
+      for (const e of entriesFor(entries, date, h.id)) {
+        items.push({ date, n, habit: h, entry: e, img: h.id === 'drawing' ? imageOf(e) : null });
+      }
     }
   }
   items.reverse();
@@ -268,13 +274,13 @@ let assetCount = 0;
 const srcDir = entriesDir();
 for (const date of Object.keys(entries)) {
   for (const h of cfg.habits) {
-    const e = entries[date][h.id];
-    if (!e) continue;
-    for (const a of e.assets) {
-      const to = path.join(outDir, 'media', date, a);
-      fs.mkdirSync(path.dirname(to), { recursive: true });
-      fs.copyFileSync(path.join(srcDir, date, a), to);
-      assetCount++;
+    for (const e of entriesFor(entries, date, h.id)) {
+      for (const a of e.assets) {
+        const to = path.join(outDir, 'media', date, a);
+        fs.mkdirSync(path.dirname(to), { recursive: true });
+        fs.copyFileSync(path.join(srcDir, date, a), to);
+        assetCount++;
+      }
     }
   }
 }

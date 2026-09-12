@@ -4,7 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadConfig, challengeDate, isValidDate, entriesDir, formatDate } from './lib/data.mjs';
+import { loadConfig, challengeDate, isValidDate, entriesDir, entryBase, formatDate } from './lib/data.mjs';
 
 const cfg = loadConfig();
 const argv = process.argv.slice(2);
@@ -29,7 +29,16 @@ if (!isValidDate(date)) {
 
 const dir = path.join(entriesDir(), date);
 fs.mkdirSync(dir, { recursive: true });
-const file = path.join(dir, `${habit.id}.md`);
+
+// За день можно сделать несколько статей и несколько рисунков: берём следующее
+// свободное место, если не указано --slot.
+let slot = Number(opt('slot')) || 0;
+if (!slot) {
+  slot = 1;
+  while (fs.existsSync(path.join(dir, `${entryBase(habit.id, slot)}.md`))) slot++;
+}
+const base = entryBase(habit.id, slot);
+const file = path.join(dir, `${base}.md`);
 
 if (fs.existsSync(file) && !argv.includes('--force')) {
   console.error(`Запись уже есть: ${file}\nОткрой её или добавь --force, чтобы перезаписать.`);
@@ -62,8 +71,8 @@ if (habit.id === 'reading') {
       process.exit(1);
     }
     const ext = path.extname(img).toLowerCase().replace('.jpeg', '.jpg');
-    fs.copyFileSync(img, path.join(dir, 'drawing' + ext));
-    meta.image = 'drawing' + ext;
+    fs.copyFileSync(img, path.join(dir, base + ext));
+    meta.image = base + ext;
   }
 }
 
@@ -71,5 +80,6 @@ if (habit.id === 'reading') {
 const head = Object.entries(meta).map(([k, v]) => `${k}: ${v}`).join('\n');
 fs.writeFileSync(file, `---\n${head}\n---\n\n${body}`);
 
-console.log(`Создано: ${path.relative(process.cwd(), file)}  (${habit.name.toLowerCase()}, ${formatDate(date)})`);
+const nth = slot > 1 ? `, ${slot}-я за день` : '';
+console.log(`Создано: ${path.relative(process.cwd(), file)}  (${habit.name.toLowerCase()}, ${formatDate(date)}${nth})`);
 console.log('Заполни файл, потом:  git add -A && git commit -m "день" && git push');

@@ -153,7 +153,7 @@ a.cell:hover { border-color: var(--ink); }
 .num { font-size: 12px; color: var(--muted); line-height: 1; }
 .cell.is-done .num, .cell.is-partial .num, .cell.is-missed .num { color: var(--ink); }
 
-.marks { display: flex; gap: 3px; }
+.marks { display: flex; gap: 3px; align-items: flex-end; }
 
 .mark {
   height: 4px;
@@ -162,6 +162,16 @@ a.cell:hover { border-color: var(--ink); }
   background: var(--line);
 }
 .mark.done { background: var(--done); }
+/* Две записи и больше за один день — штрих раздваивается. */
+.mark.done.many {
+  height: 9px;
+  background: linear-gradient(
+    to bottom,
+    var(--done) 0 4px,
+    transparent 4px 5px,
+    var(--done) 5px 9px
+  );
+}
 .mark.missed { background: var(--miss-soft); }
 .mark.future { background: var(--line-soft); }
 
@@ -186,6 +196,15 @@ a.cell:hover { border-color: var(--ink); }
 .legend .done { background: var(--done); }
 .legend .missed { background: var(--miss-soft); }
 .legend .future { background: var(--line-soft); border: 1px solid var(--line); }
+.legend i.many {
+  height: 9px;
+  background: linear-gradient(
+    to bottom,
+    var(--done) 0 4px,
+    transparent 4px 5px,
+    var(--done) 5px 9px
+  );
+}
 
 /* --- страница дня --- */
 
